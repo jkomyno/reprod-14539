@@ -47,16 +47,17 @@ jobs:
       - name: Install dependencies
         run: npm i --legacy-peer-deps
 
-      - name: prisma db push
-        run: npm run prisma:db-push
-
       - name: Test bugged MariaDB
-        run: npm run test 
+        run: |
+          npm run prisma:db-push
+          npm run test 
         env:
           DATABASE_URL: ${{ env.DATABASE_MARIADB_BUGGED_URL }}
           IS_DATABASE_BUGGED: '1'
 
       - name: Test stable MariaDB
-        run: npm run test
+        run: |
+          npm run prisma:db-push
+          npm run test 
         env:
           DATABASE_URL: ${{ env.DATABASE_MARIADB_STABLE_URL }}
