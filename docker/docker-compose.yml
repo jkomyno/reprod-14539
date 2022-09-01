@@ -1,0 +1,27 @@
+version: '3.7'
+
+# For connection urls to the following instances, see
+# https://github.com/prisma/prisma/blob/main/TESTING.md#environment-variables
+services:
+  mariadb-stable:
+    image: mariadb:10.8.4
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=tests
+      - MYSQL_USER=prisma
+      - MYSQL_PASSWORD=prisma
+    ports:
+      - '4306:3306'
+
+  mariadb-bugged:
+    # https://jira.mariadb.org/browse/MDEV-27937
+    image: mariadb:10.7.3
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=tests
+      - MYSQL_USER=prisma
+      - MYSQL_PASSWORD=prisma
+    ports:
+      - '4307:3306'
