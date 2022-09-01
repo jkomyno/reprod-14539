@@ -13,14 +13,14 @@ export DATABASE_MARIADB_BUGGED_URL="mysql://root:root@localhost:4307/PRISMA_DB_N
 
 ### Reproduction
 
-- pnpm i
-- pnpm prisma:db-push
+- `pnpm i`
+- `pnpm prisma:db-push`
 
 - Test on bugged database:
-  - export DATABASE_URL=$DATABASE_MARIADB_BUGGED_URL
-  - export IS_DATABASE_BUGGED='1'
-  - pnpm test
+  - `export DATABASE_URL=$DATABASE_MARIADB_BUGGED_URL`
+  - `export IS_DATABASE_BUGGED='1'`
+  - `pnpm test`
 - Test on stable database:
-  - export DATABASE_URL=$DATABASE_MARIADB_STABLE_URL
-  - export IS_DATABASE_BUGGED='0'
-  - pnpm test
+  - `export DATABASE_URL=$DATABASE_MARIADB_STABLE_URL`
+  - `export IS_DATABASE_BUGGED='0'`
+  - `pnpm test`
