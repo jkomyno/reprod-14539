@@ -12,7 +12,7 @@ const prisma = new PrismaClient({
 })
 
 prisma.$on('query', (e) => {
-  console.log('Select IN query: %s', e.query)
+  // console.log('Select IN query: %s', e.query)
 })
 
 async function clean() {
