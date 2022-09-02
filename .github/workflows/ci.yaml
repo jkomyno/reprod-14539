@@ -61,3 +61,10 @@ jobs:
           npm run test 
         env:
           DATABASE_URL: ${{ env.DATABASE_MARIADB_STABLE_URL }}
+
+      - name: Test MySQL
+        run: |
+          npm run prisma:db-push
+          npm run test 
+        env:
+          DATABASE_URL: ${{ env.DATABASE_MYSQL_URL }}
