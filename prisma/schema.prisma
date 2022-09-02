@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Tag {
+model Post {
   id Int @id
+}
+
+model Vacancy {
+  id Int @id @default(autoincrement())
+  staffMemberId Int?
+  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id])
+}
+
+model StaffMember {
+  id        Int @id @default(autoincrement())
+  name      String
+  vacancies Vacancy[]
 }

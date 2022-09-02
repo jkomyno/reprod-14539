@@ -16,7 +16,7 @@ prisma.$on('query', (e) => {
 })
 
 async function clean() {
-  const cleanPrismaPromises = [prisma.tag.deleteMany()]
+  const cleanPrismaPromises = [prisma.tag.deleteMany(), prisma.vacancy.deleteMany(), prisma.staffMember.deleteMany()]
   await prisma.$transaction(cleanPrismaPromises)
 }
 
@@ -29,6 +29,58 @@ async function createTags(length: number): Promise<number[]> {
       prisma.tag.create({
         data: {
           id,
+        },
+      }),
+    )
+  }
+
+  await prisma.$transaction(prismaPromises)
+  return ids
+}
+
+async function findUniqueStaffMembers(length: number) {
+  const staffMember = await prisma.staffMember.create({
+    data: { name: 'StaffMember1' },
+  })
+
+  await prisma.vacancy.createMany({
+    data: Array.from({ length }, (_, i) => ({
+      id: i + 1,
+      staffMemberId: staffMember.id,
+    })),
+  })
+
+  const vacancyIds = (await prisma.vacancy.findMany({ take: length * 10 })).map(vacancy => vacancy.id)
+  
+  // Get the staffMembers of the vacancies in one go
+  const getAllStaffMembersPromises = vacancyIds.map(id => prisma.vacancy.findUnique({
+    where: { id }
+  }).staffMember())
+  const staffMembersFromPrisma = await Promise.all(getAllStaffMembersPromises)
+
+  return { staffMember, staffMembersFromPrisma }
+}
+
+async function createPostsWithTags({ nPosts, nTagsPerPost }: { nPosts: number, nTagsPerPost: number }): Promise<number[]> {
+  const ids = Array.from({ length: nPosts }, (_, i) => (i * nTagsPerPost) + 1)
+  const prismaPromises: any = []
+
+  // each post (with even ids) has two tags (one with the same id, one with an odd id)
+  for (const id of ids) {
+    const tagIds = Array.from({ length: nTagsPerPost }, (_, i) => id + i)
+    const createTagsExpr = tagIds.map(tagId => ({
+      tag: {
+        create: { id: tagId },
+      },
+    }))
+
+    prismaPromises.push(
+      prisma.post.create({
+        data: {
+          id,
+          tags: {
+            create: createTagsExpr,
+          },
         },
       }),
     )
@@ -69,6 +121,13 @@ describe('explicit IN', () => {
     assert.equal(tags.length, 999)
     assert.deepEqual(tags[0], { id: 1 })
   })
+
+  test('findUnique less than 1000 elements', async () => {
+    await clean()
+    const length = 999
+    const { staffMember, staffMembersFromPrisma } = await findUniqueStaffMembers(length)
+    assert.deepEqual(staffMembersFromPrisma, Array.from({ length }, () => ({ id: staffMember.id, name: staffMember.name })))
+  })
 })
 
 describeIf(isDatabaseBugged)('bugged database', () => {
@@ -105,6 +164,25 @@ describeIf(isDatabaseBugged)('bugged database', () => {
 
     process.env = env
   })
+
+  test('findUnique at least 1000 elements', async () => {
+    await clean()
+    const length = 1000
+    const { staffMembersFromPrisma } = await findUniqueStaffMembers(length)
+    assert.deepEqual(staffMembersFromPrisma, Array.from({ length }, () => null))
+  })
+
+  test('findUnique at least 1000 elements is not influenced by QUERY_BATCH_SIZE=100', async () => {
+    await clean()
+    const env = { ...process.env }
+    process.env = { ...process.env, QUERY_BATCH_SIZE: '1000' }
+
+    const length = 1000
+    const { staffMembersFromPrisma } = await findUniqueStaffMembers(length)
+    assert.deepEqual(staffMembersFromPrisma, Array.from({ length }, () => null))
+
+    process.env = env
+  })
 })
 
 describeIf(!isDatabaseBugged)('stable database', () => {
@@ -119,5 +197,12 @@ describeIf(!isDatabaseBugged)('stable database', () => {
   
     assert.equal(tags.length, 1000)
     assert.deepEqual(tags[0], { id: 1 })
+  })
+
+  test('findUnique at least 1000 elements', async () => {
+    await clean()
+    const length = 1000
+    const { staffMember, staffMembersFromPrisma } = await findUniqueStaffMembers(length)
+    assert.deepEqual(staffMembersFromPrisma, Array.from({ length }, () => ({ id: staffMember.id, name: staffMember.name })))
   })
 })
