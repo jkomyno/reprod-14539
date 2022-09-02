@@ -123,6 +123,23 @@ describe('explicit IN', () => {
     assert.deepEqual(tags[0], { id: 1 })
   })
 
+  test('findMany + IN + take less than 1000 elements', async () => {
+    await clean()
+    const ids = await createTags(999)
+    const tags = await prisma.tag.findMany({
+      where: {
+        id: { in: ids },
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      take: 3,
+    })
+  
+    assert.equal(tags.length, 3)
+    assert.deepEqual(tags, [{ id: 999 }, { id: 998 }, { id: 997 }])
+  })
+
   test('findUnique less than 1000 elements', async () => {
     await clean()
     const length = 999
@@ -273,6 +290,22 @@ describeIf(isDatabaseBugged)('bugged database', () => {
       assert.equal(e.message.includes('Inconsistent query result: Field tag is required to return data, got `null` instead.'), true)
     }
   })
+
+  test('findMany + IN + take at least 1000 elements', async () => {
+    await clean()
+    const ids = await createTags(1000)
+    const tags = await prisma.tag.findMany({
+      where: {
+        id: { in: ids },
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      take: 3,
+    })
+  
+    assert.equal(tags.length, 0)
+  })
 })
 
 describeIf(!isDatabaseBugged)('stable database', () => {
@@ -311,5 +344,22 @@ describeIf(!isDatabaseBugged)('stable database', () => {
     })
 
     assert.deepEqual(posts.length, 2)
+  })
+
+  test('findMany + IN + take at least 1000 elements', async () => {
+    await clean()
+    const ids = await createTags(1000)
+    const tags = await prisma.tag.findMany({
+      where: {
+        id: { in: ids },
+      },
+      orderBy: {
+        id: 'desc',
+      },
+      take: 3,
+    })
+  
+    assert.equal(tags.length, 3)
+    assert.deepEqual(tags, [{ id: 1000 }, { id: 999 }, { id: 998 }])
   })
 })
