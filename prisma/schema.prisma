@@ -8,17 +8,32 @@ datasource db {
 }
 
 model Post {
-  id Int @id
+  id   Int           @id
+  tags TagsOnPosts[]
+}
+
+model Tag {
+  id    Int           @id
+  posts TagsOnPosts[]
+}
+
+model TagsOnPosts {
+  postId Int
+  tagId  Int
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
 }
 
 model Vacancy {
-  id Int @id @default(autoincrement())
+  id            Int          @id @default(autoincrement())
   staffMemberId Int?
-  staffMember StaffMember? @relation(fields: [staffMemberId], references: [id])
+  staffMember   StaffMember? @relation(fields: [staffMemberId], references: [id])
 }
 
 model StaffMember {
-  id        Int @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String
   vacancies Vacancy[]
 }

@@ -16,7 +16,7 @@ prisma.$on('query', (e) => {
 })
 
 async function clean() {
-  const cleanPrismaPromises = [prisma.tag.deleteMany(), prisma.vacancy.deleteMany(), prisma.staffMember.deleteMany()]
+  const cleanPrismaPromises = [prisma.tagsOnPosts.deleteMany(), prisma.post.deleteMany(), prisma.tag.deleteMany(), prisma.vacancy.deleteMany(), prisma.staffMember.deleteMany()]
   await prisma.$transaction(cleanPrismaPromises)
 }
 
@@ -29,6 +29,36 @@ async function createTags(length: number): Promise<number[]> {
       prisma.tag.create({
         data: {
           id,
+        },
+      }),
+    )
+  }
+
+  await prisma.$transaction(prismaPromises)
+  return ids
+}
+
+
+async function createPostsWithTags({ nPosts, nTagsPerPost }: { nPosts: number, nTagsPerPost: number }): Promise<number[]> {
+  const ids = Array.from({ length: nPosts }, (_, i) => (i * nTagsPerPost) + 1)
+  const prismaPromises: any = []
+
+  // each post (with even ids) has two tags (one with the same id, one with an odd id)
+  for (const id of ids) {
+    const tagIds = Array.from({ length: nTagsPerPost }, (_, i) => id + i)
+    const createTagsExpr = tagIds.map(tagId => ({
+      tag: {
+        create: { id: tagId },
+      },
+    }))
+
+    prismaPromises.push(
+      prisma.post.create({
+        data: {
+          id,
+          tags: {
+            create: createTagsExpr,
+          },
         },
       }),
     )
@@ -59,35 +89,6 @@ async function findUniqueStaffMembers(length: number) {
   const staffMembersFromPrisma = await Promise.all(getAllStaffMembersPromises)
 
   return { staffMember, staffMembersFromPrisma }
-}
-
-async function createPostsWithTags({ nPosts, nTagsPerPost }: { nPosts: number, nTagsPerPost: number }): Promise<number[]> {
-  const ids = Array.from({ length: nPosts }, (_, i) => (i * nTagsPerPost) + 1)
-  const prismaPromises: any = []
-
-  // each post (with even ids) has two tags (one with the same id, one with an odd id)
-  for (const id of ids) {
-    const tagIds = Array.from({ length: nTagsPerPost }, (_, i) => id + i)
-    const createTagsExpr = tagIds.map(tagId => ({
-      tag: {
-        create: { id: tagId },
-      },
-    }))
-
-    prismaPromises.push(
-      prisma.post.create({
-        data: {
-          id,
-          tags: {
-            create: createTagsExpr,
-          },
-        },
-      }),
-    )
-  }
-
-  await prisma.$transaction(prismaPromises)
-  return ids
 }
 
 // @ts-ignore
@@ -127,6 +128,75 @@ describe('explicit IN', () => {
     const length = 999
     const { staffMember, staffMembersFromPrisma } = await findUniqueStaffMembers(length)
     assert.deepEqual(staffMembersFromPrisma, Array.from({ length }, () => ({ id: staffMember.id, name: staffMember.name })))
+  })
+
+  test('findMany + include after creating few elements', async () => {
+    await clean()
+    await createPostsWithTags({ nPosts: 2, nTagsPerPost: 3 })
+    const posts = await prisma.post.findMany({
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    })
+
+    assert.deepEqual(posts, [
+      {
+        id: 1,
+        tags: [
+          {
+            postId: 1,
+            tag: {
+              id: 1
+            },
+            tagId: 1,
+          },
+          {
+            postId: 1,
+            tag: {
+              id: 2
+            },
+            tagId: 2,
+          },
+          {
+            postId: 1,
+            tag: {
+              id: 3
+            },
+            tagId: 3,
+          },
+        ],
+      },
+      {
+        id: 4,
+        tags: [
+          {
+            postId: 4,
+            tag: {
+              id: 4
+            },
+            tagId: 4,
+          },
+          {
+            postId: 4,
+            tag: {
+              id: 5
+            },
+            tagId: 5,
+          },
+          {
+            postId: 4,
+            tag: {
+              id: 6
+            },
+            tagId: 6,
+          },
+        ],
+      },
+    ])
   })
 })
 
@@ -183,6 +253,26 @@ describeIf(isDatabaseBugged)('bugged database', () => {
 
     process.env = env
   })
+
+  test('findMany + include after creating at least 1000 elements', async () => {
+    await clean()
+    await createPostsWithTags({ nPosts: 2, nTagsPerPost: 1000 })
+  
+    try {
+      const posts = await prisma.post.findMany({
+        include: {
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
+        },
+      })
+    } catch (error) {
+      const e = error as Error
+      assert.equal(e.message.includes('Inconsistent query result: Field tag is required to return data, got `null` instead.'), true)
+    }
+  })
 })
 
 describeIf(!isDatabaseBugged)('stable database', () => {
@@ -204,5 +294,22 @@ describeIf(!isDatabaseBugged)('stable database', () => {
     const length = 1000
     const { staffMember, staffMembersFromPrisma } = await findUniqueStaffMembers(length)
     assert.deepEqual(staffMembersFromPrisma, Array.from({ length }, () => ({ id: staffMember.id, name: staffMember.name })))
+  })
+
+  test('findMany + include after creating at least 1000 elements', async () => {
+    await clean()
+    await createPostsWithTags({ nPosts: 2, nTagsPerPost: 1000 })
+  
+    const posts = await prisma.post.findMany({
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    })
+
+    assert.deepEqual(posts.length, 2)
   })
 })
